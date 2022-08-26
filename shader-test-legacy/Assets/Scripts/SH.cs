@@ -14,10 +14,35 @@ public class Sample {
     }
 }
 public interface SphericalStrategy {
-	void project(Sample s);
-	void reconstruct();
+	float project(Sample s);
+	void reconstruct(in List<Sample> samples);
 }
 
+public class ExampleLight : SphericalStrategy {
+	public List<float> ci {get;}
+	public ExampleLight()
+   	{
+        ci = new List<float>();
+    }
+	public float project(Sample s) {
+		return Mathf.Max(0, 5f * Mathf.Cos(s.theta)-4) + Mathf.Max(0, -4*Mathf.Sin(s.theta-Mathf.PI) * Mathf.Cos(s.phi-2.5f)-3f);
+	} 
+	public void reconstruct(in List<Sample> samples) {
+		var weight = 4f * Mathf.PI;
+		int count = 0;
+		ci.Clear();
+		foreach(Sample sample in samples) {
+			foreach(float c in sample.coeff){
+				ci.Add(project(sample) * c);
+				++count;
+			}
+		}
+		var factor = weight / samples.Count;
+		foreach(int i in Enumerable.Range(0, count)) {
+			ci[i] = ci[i] * factor;
+		}
+	}
+}
 public class SH : MonoBehaviour
 {
 	Mesh mesh;
@@ -25,6 +50,7 @@ public class SH : MonoBehaviour
 	Vector3[] normals;
 	const int		SQRT_NB_SAMPLES = 20;
 	const int		MAX_NB_SAMPLES = SQRT_NB_SAMPLES * SQRT_NB_SAMPLES;
+	List<Sample> samples = new List<Sample>();
     // Start is called before the first frame update
     void Start()
     {
@@ -32,7 +58,8 @@ public class SH : MonoBehaviour
         vertices = mesh.vertices;
 		normals = mesh.normals;
         // create new colors array where the colors will be created.
-        Color[] colors = new Color[vertices.Length];   
+        Color[] colors = new Color[vertices.Length]; 
+		SH_setup_spherical_samples(ref samples, SQRT_NB_SAMPLES, 4);  
     }
 
     // Update is called once per frame
@@ -132,12 +159,11 @@ public class SH : MonoBehaviour
     	else
     		return Mathf.Sqrt(2f) * K(l, -m) * Mathf.Sin(-m * phi) * P(l, -m, Mathf.Cos(theta));
     }
-    void SH_setup_spherical_samples(in List<Sample> samples, int sqrt_n_samples, int n_bands) {
+    void SH_setup_spherical_samples(ref List<Sample> samples, int sqrt_n_samples, int n_bands) {
     	/*
     	fill an N*N*2 array with uniformly distributed 
     	samples across the sphere using jittered stratification
     	*/
-    	int i = 0;
     	float oneoverN = 1f/sqrt_n_samples;
     	foreach(int a in Enumerable.Range(0, sqrt_n_samples)) {
     		foreach(int b in Enumerable.Range(0, sqrt_n_samples)) {
@@ -150,18 +176,18 @@ public class SH : MonoBehaviour
     			Vector3 vec = new Vector3(Mathf.Sin(theta)*Mathf.Cos(phi),
     				                      Mathf.Sin(theta)*Mathf.Sin(phi),
     				                      Mathf.Cos(theta));
-    			samples[i].phi = phi;
-    			samples[i].theta = theta;
+				var sample = new Sample();
+				sample.phi = phi;
+				sample.theta = theta;
+				sample.vec = vec;
     			foreach(int l in Enumerable.Range(0, n_bands)) {
     				foreach(int m in Enumerable.Range(-l, l+1)) {
     					// int index = l*(l+1)+m;
     					float coeff = SH_basis(l, m, theta, phi);
-    					samples[i].coeff.Add(coeff);
-
+						sample.coeff.Add(coeff);
     			    }
-
     		 	}
-    		 	++i;
+				samples.Add(sample);
     	    }
         }
     }
