@@ -2,72 +2,19 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
-
+using Coeff = System.Collections.Generic.List<float>;
 public class Sample {
 	public Vector3 vec {get; set;}
 	public float theta {get; set;}
 	public float phi {get; set;}
-	public List<float> coeff {get; set;}
+	public Coeff coeff {get; set;}
 	public Sample()
    	{
-        coeff = new List<float>();
+        coeff = new Coeff();
     }
 }
-public interface SphericalStrategy {
-	float project(Sample s);
-	void reconstruct(in List<Sample> samples);
-}
-
-public class ExampleLight : SphericalStrategy {
-	public List<float> ci {get;}
-	public ExampleLight()
-   	{
-        ci = new List<float>();
-    }
-	public float project(Sample s) {
-		return Mathf.Max(0, 5f * Mathf.Cos(s.theta)-4) + Mathf.Max(0, -4*Mathf.Sin(s.theta-Mathf.PI) * Mathf.Cos(s.phi-2.5f)-3f);
-	} 
-	public void reconstruct(in List<Sample> samples) {
-		var weight = 4f * Mathf.PI;
-		int count = 0;
-		ci.Clear();
-		foreach(Sample sample in samples) {
-			foreach(float c in sample.coeff){
-				ci.Add(project(sample) * c);
-				++count;
-			}
-		}
-		var factor = weight / samples.Count;
-		foreach(int i in Enumerable.Range(0, count)) {
-			ci[i] = ci[i] * factor;
-		}
-	}
-}
-public class SH : MonoBehaviour
-{
-	Mesh mesh;
-    Vector3[] vertices;
-	Vector3[] normals;
-	const int		SQRT_NB_SAMPLES = 20;
-	const int		MAX_NB_SAMPLES = SQRT_NB_SAMPLES * SQRT_NB_SAMPLES;
-	List<Sample> samples = new List<Sample>();
-    // Start is called before the first frame update
-    void Start()
-    {
-    	mesh = GetComponent<MeshFilter>().mesh;
-        vertices = mesh.vertices;
-		normals = mesh.normals;
-        // create new colors array where the colors will be created.
-        Color[] colors = new Color[vertices.Length]; 
-		SH_setup_spherical_samples(ref samples, SQRT_NB_SAMPLES, 4);  
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
-	Vector2 CartesianToPolar(Vector3 pos) {
+public static class Utilities {
+	public static Vector2 CartesianToPolar(Vector3 pos) {
 		var polar = new Vector2();
 		// calc longitude
 		polar.y = Mathf.Atan2(pos.x, pos.z);
@@ -82,6 +29,92 @@ public class SH : MonoBehaviour
 		// polar *= Mathf.Rad2Deg;
 		return polar;
 	}
+}
+
+public interface SphericalStrategy {
+	void proccess(in Sample s, in Vector3 normal, ref Coeff coeff);
+}
+
+public class DeffuseUnShadowed : SphericalStrategy {
+	public void proccess(in Sample s, in Vector3 normal, ref Coeff coeff) {
+		var n_bases = s.coeff.Count;
+		float H =  Vector3.Dot(s.vec, normal);
+		if (H>0f) {
+			for(int i=0; i<n_bases; ++i) {
+			   coeff[i] += H * s.coeff[i] * (1f/Mathf.PI);
+			}
+		}
+	} 
+}
+public class SH : MonoBehaviour
+{
+	public int bands;
+	Mesh mesh;
+    Vector3[] vertices;
+	Vector3[] normals;
+	const int		SQRT_NB_SAMPLES = 20;
+	const int		MAX_NB_SAMPLES = SQRT_NB_SAMPLES * SQRT_NB_SAMPLES;
+	List<Sample> samples = new List<Sample>();
+	
+	List<Coeff> ci = new List<Coeff>();
+	List<Coeff> li = new List<Coeff>();
+	float[] factorial = new float[] {
+		1.0f,  
+		1.0f,
+		2.0f,
+		6.0f,
+		24.0f,
+		120.0f,
+		720.0f,
+		5040.0f,
+		40320.0f,
+		362880.0f,
+		3628800.0f,
+		39916800.0f,
+		479001600.0f,
+		6227020800.0f,
+		87178291200.0f,
+		1307674368000.0f,
+		20922789888000.0f,
+		355687428096000.0f,
+		6402373705728000.0f,
+		121645100408832000.0f,
+		2432902008176640000.0f,
+		51090942171709440000.0f,
+		1124000727777607680000.0f,
+		25852016738884976640000.0f,
+		620448401733239439360000.0f,
+		15511210043330985984000000.0f,
+		403291461126605635584000000.0f,
+		10888869450418352160768000000.0f,
+		304888344611713860501504000000.0f,
+		8841761993739701954543616000000.0f,
+		265252859812191058636308480000000.0f,
+		8222838654177922817725562880000000.0f,
+		263130836933693530167218012160000000.0f,
+		8683317618811886495518194401280000000.0f
+	};
+
+    // Start is called before the first frame update
+    void Start()
+    {
+    	mesh = GetComponent<MeshFilter>().mesh;
+        vertices = mesh.vertices;
+		normals = mesh.normals;
+        // create new colors array where the colors will be created.
+		SH_setup_spherical_samples(ref samples, SQRT_NB_SAMPLES, bands);
+		DeffuseUnShadowed diffuse_unshadowed = new DeffuseUnShadowed();
+		for(int i=0; i<vertices.Length; ++i) {
+			ci.Add(new Coeff(new float[bands*bands]));
+		}
+		reconstruct(in mesh, in samples, ref ci, diffuse_unshadowed);
+		draw();
+    }
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
     // Basic integer factorial
 	int Factorial(int v)
 	{
@@ -100,13 +133,14 @@ public class SH : MonoBehaviour
     	  evaluate an Associated Legendre Polynomial P(l,m,x) at x
     	*/
     	// Start with P(0,0) at 1
-    	float pmm = 1.0f;
+    	float pmm = 1f;
     	
     	// First calculate P(m,m) since that is the only rule that requires results
 		// from previous bands
 
 		// Precalculate (1 - x^2)^0.5
-		float somx2 = Mathf.Sqrt((1.0f-x)*(1.0f+x));
+		// float somx2 = Mathf.Sqrt((1f-x)*(1f+x));
+		
 		// This calculates P(m,m). There are three terms in rule 2 that are being iteratively multiplied:
 		//
 		// 0: -1^m
@@ -117,11 +151,13 @@ public class SH : MonoBehaviour
 		// completes the term.
 		// The result of 2m-1 is always odd so the double factorial calculation multiplies every odd
 		// number below 2m-1 together. So, term 3 is calculated using the 'fact' variable.
-		float fact = 1.0f;
+		
 		if (m > 0) {
+			float somx2 = Mathf.Sqrt((1f-x)*(1f+x));
+			float fact = 1f;
 			for(int i=1; i<=m; ++i) {
 				pmm *= (-fact) * somx2;
-				fact += 2.0f;
+				fact += 2f;
 			}
 		}
 		// rule 2
@@ -129,7 +165,7 @@ public class SH : MonoBehaviour
 			return pmm;
 
 		// rule 3 , use result of P(m,m) to calculate P(m,m+1)
-		float pmmpl = x * (2.0f*m + 1.0f) * pmm;
+		float pmmpl = x * (2f*m + 1f) * pmm;
 		if (l == (m+1))
 			return pmmpl;
 
@@ -137,7 +173,7 @@ public class SH : MonoBehaviour
 		float pll = 0.0f;
 		for(int ll=m+2; ll<=l; ++ll) {
 			// Use result of two previous bands
-			pll = ((2.0f*ll-1.0f)*x*pmmpl-(ll+m-1.0f)*pmm)/(ll-m);
+			pll = ((2f*ll-1.0f)*x*pmmpl-(ll+m-1f)*pmm)/(ll-m);
 			// Shift the previous two bands up
 			pmm = pmmpl;
 			pmmpl = pll;
@@ -148,12 +184,12 @@ public class SH : MonoBehaviour
     float K(int l, int m) 
     {
     	// Note that |m| is not used here as the SH function always passes positive m
-    	return Mathf.Sqrt(((2f * l + 1f) * Factorial(l - m)) / (4f * Mathf.PI * Factorial(l + m)));
+    	return Mathf.Sqrt(((2f * l + 1f) * factorial[l - m]) / (4f * Mathf.PI * factorial[l + m]));
     }
 
     float SH_basis(int l, int m, float theta, float phi) {
     	if (m == 0)
-    		return K(l, 0) * P(l, 0, Mathf.Cos(theta));
+    		return K(l, 0) * P(l, m, Mathf.Cos(theta));
     	else if(m > 0)
     		return Mathf.Sqrt(2f) * K(l, m) * Mathf.Cos(m * phi) * P(l, m, Mathf.Cos(theta));
     	else
@@ -165,8 +201,8 @@ public class SH : MonoBehaviour
     	samples across the sphere using jittered stratification
     	*/
     	float oneoverN = 1f/sqrt_n_samples;
-    	foreach(int a in Enumerable.Range(0, sqrt_n_samples)) {
-    		foreach(int b in Enumerable.Range(0, sqrt_n_samples)) {
+    	for(int a = 0; a <  sqrt_n_samples; ++a) {
+    		for(int b = 0; b < sqrt_n_samples; ++b) {
     			// generate unbiased distribution of spherical coords
     			float x = (a + Random.value) * oneoverN;  // do not reuse results 
     			float y = (b + Random.value) * oneoverN;
@@ -180,9 +216,9 @@ public class SH : MonoBehaviour
 				sample.phi = phi;
 				sample.theta = theta;
 				sample.vec = vec;
-    			foreach(int l in Enumerable.Range(0, n_bands)) {
-    				foreach(int m in Enumerable.Range(-l, l+1)) {
-    					// int index = l*(l+1)+m;
+    			for(int l = 0; l < n_bands; ++l) {
+    				for(int m = -l; m <=l; ++m) {
+    					int index = l*(l+1)+m;
     					float coeff = SH_basis(l, m, theta, phi);
 						sample.coeff.Add(coeff);
     			    }
@@ -191,5 +227,37 @@ public class SH : MonoBehaviour
     	    }
         }
     }
+	void reconstruct(in Mesh mesh, in List<Sample> samples, ref List<Coeff> ci, SphericalStrategy policy) {
+		var weight = 4f * Mathf.PI;
+		Vector3[] vertices = mesh.vertices;
+		int n_bases = samples[0].coeff.Count;
+		for (var i = 0; i < vertices.Length; ++i) {	
+			Coeff coeff = new Coeff(new float[n_bases]);		
+			foreach(Sample sample in samples) {
+				policy.proccess(sample, mesh.normals[i], ref coeff);
+				ci[i] = coeff;
+			}
+			var factor = weight / samples.Count;
+			for(int k=0; k < n_bases; ++k) {
+				ci[i][k] = ci[i][k] * factor;
+			}
+		} 
+	}
+	void draw() {
+		var NB_BASES = bands * bands;
+		var colors = new Color[vertices.Length]; 
+	
+		for (var i = 0; i < vertices.Length; ++i) {
+			//foreach(Sample s in samples) {
+				float color = 0f;
+				for(int k = 0; k<NB_BASES; ++k){
+					color += ci[i][k] * 0.7f;
+				}
+				colors[i] = new Color(color, color, color);
+			//}
+
+		}
+		mesh.colors = colors;
+	}
 }
 
