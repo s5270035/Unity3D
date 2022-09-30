@@ -30,19 +30,37 @@ public static class Utilities {
 		return polar;
 	}
 }
-
-public interface SphericalStrategy {
-	void proccess(in Sample s, in Vector3 normal, ref Coeff coeff);
+public abstract class SphericalStrategy {
+	public virtual void proccess(in Sample s, in Vector3 pos, in Vector3 normal, ref Coeff coeff) {
+		Debug.Log("override me");
+	}
 }
 
 public class DeffuseUnShadowed : SphericalStrategy {
-	public void proccess(in Sample s, in Vector3 normal, ref Coeff coeff) {
+	public override void proccess(in Sample s, in Vector3 pos, in Vector3 normal, ref Coeff coeff) {
 		var n_bases = s.coeff.Count;
 		float H =  Vector3.Dot(s.vec, normal);
 		if (H>0f) {
 			for(int i=0; i<n_bases; ++i) {
 			   coeff[i] += H * s.coeff[i] * (1f/Mathf.PI);
 			}
+		}
+	} 
+}
+public class AmbientOcclusion : SphericalStrategy {
+	public override void proccess(in Sample s, in Vector3 pos, in Vector3 normal, ref Coeff coeff) {
+		var n_bases = s.coeff.Count;
+		float H =  Vector3.Dot(s.vec, normal);
+		//Debug.Log(normal);
+		if (H>0f) {
+			// RaycastHit hit;
+			for(int i=0; i<n_bases; ++i) {
+				// if(!Physics.Raycast(pos+2f*float.Epsilon*normal, s.vec, out hit, 2f)) {
+				// 	coeff[i] += H * s.coeff[i] * (1f / Mathf.PI);
+				// }	
+				Debug.Log(H * s.coeff[i]);		   
+			}
+			
 		}
 	} 
 }
@@ -104,10 +122,11 @@ public class SH : MonoBehaviour
         // create new colors array where the colors will be created.
 		SH_setup_spherical_samples(ref samples, SQRT_NB_SAMPLES, bands);
 		DeffuseUnShadowed diffuse_unshadowed = new DeffuseUnShadowed();
+		AmbientOcclusion ambient_occlusion = new AmbientOcclusion();
 		for(int i=0; i<vertices.Length; ++i) {
 			ci.Add(new Coeff(new float[bands*bands]));
 		}
-		reconstruct(in mesh, in samples, ref ci, diffuse_unshadowed);
+		reconstruct(in mesh, in samples, ref ci, ambient_occlusion);
 		draw();
     }
     // Update is called once per frame
@@ -234,7 +253,7 @@ public class SH : MonoBehaviour
 		for (var i = 0; i < vertices.Length; ++i) {	
 			Coeff coeff = new Coeff(new float[n_bases]);		
 			foreach(Sample sample in samples) {
-				policy.proccess(sample, mesh.normals[i], ref coeff);
+				policy.proccess(sample, vertices[i], mesh.normals[i], ref coeff);
 				ci[i] = coeff;
 			}
 			var factor = weight / samples.Count;
@@ -251,7 +270,7 @@ public class SH : MonoBehaviour
 			//foreach(Sample s in samples) {
 				float color = 0f;
 				for(int k = 0; k<NB_BASES; ++k){
-					color += ci[i][k] * 0.7f;
+					color += ci[i][k];
 				}
 				colors[i] = new Color(color, color, color);
 			//}
