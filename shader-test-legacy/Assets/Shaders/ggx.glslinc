@@ -1,3 +1,5 @@
+float sqr(float x) { return x*x; }  
+
 float G_Smith(float roughness, float NoV, float NoL)
 {
     // Schlich model
@@ -43,13 +45,31 @@ float GGXNormalDistribution(float roughness, half3 lightDir, half3 viewDir, floa
     float roughnessSqr = roughness*roughness;
     float NdotHSqr = NdotH*NdotH;
     float TanNdotHSqr = (1-NdotHSqr)/NdotHSqr;
-    return (1.0/3.1415926535) * sqrt(roughness/(NdotHSqr * (roughnessSqr + TanNdotHSqr)));
+    return (1.0/3.1415926535) * sqr(roughness/(NdotHSqr * (roughnessSqr + TanNdotHSqr)));
 }
 
-float smithG_GGX(float NdotV, float roughness) 
+// Generalized-Trowbridge-Reitz distribution  
+float D_GTR1(float alpha, float dotNH) 
+{ 
+ 
+    float a2 = alpha * alpha;  
+    float cos2th = dotNH * dotNH;  
+    float den = (1.0 + (a2 - 1.0) * cos2th);  
+ 
+    return (a2 - 1.0) / (3.1415926535 * log(a2) * den);  
+} 
+
+float D_GTR2(float alpha, float dotNH) 
+{ 
+    float a2 = alpha * alpha;  
+    float cos2th = dotNH * dotNH;  
+    float den = (1.0 + (a2 - 1.0) * cos2th);  
+    return a2 / (3.1415926535 * den * den);  
+} 
+
+float smithG_GGX(float NdotV, float alphaG) 
 {  
-       float alphaG = (0.5 + roughness/2) * (0.5 + roughness/2);
-       float a = alphaG * alphaG;  
-       float b = NdotV * NdotV;  
-       return 1 / (NdotV + sqrt(a + b - a * b));  
+    float a = alphaG * alphaG;  
+    float b = NdotV * NdotV;  
+    return 1 / (NdotV + sqrt(a + b - a * b));  
 } 
