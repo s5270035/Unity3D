@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.44657838, g: 0.49641234, b: 0.57481676, a: 1}
+  m_IndirectSpecularColor: {r: 0.4444672, g: 0.4878835, b: 0.5405782, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -190,9 +190,53 @@ PrefabInstance:
       propertyPath: m_ConstrainProportionsScale
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: -5970063134245700506, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -4026154462143948212, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 52d3cb2438c484a86a83ed7a605034b7, type: 2}
+    - target: {fileID: -1079550625679012193, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -999190199289158781, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -999190199289158781, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: ce148d347c6de4dbe8c42a3eb5ac8fdf, type: 2}
+    - target: {fileID: -999190199289158781, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Materials.Array.data[1]
+      value: 
+      objectReference: {fileID: 2100000, guid: 81680cc18f91744e2b77948509908974, type: 2}
+    - target: {fileID: -999190199289158781, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Materials.Array.data[2]
+      value: 
+      objectReference: {fileID: 2100000, guid: f5a5a44f85d9749cdbc27b560fd55f78, type: 2}
     - target: {fileID: 919132149155446097, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
       propertyPath: m_Name
       value: NPC_Coop_Avatar_Girl_Claymore_Noel (merge)
+      objectReference: {fileID: 0}
+    - target: {fileID: 3721077668771519214, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3721077668771519214, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 52d3cb2438c484a86a83ed7a605034b7, type: 2}
+    - target: {fileID: 6543953547506322406, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 52d3cb2438c484a86a83ed7a605034b7, type: 2}
+    - target: {fileID: 8721741708574366862, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1fb46722e016143d1824f8633b5df4f1, type: 3}
@@ -293,6 +337,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5c1a33601df6a48e397a71c295ec0d6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  mainSpeed: 50
+  shiftAdd: 250
+  maxShift: 1000
+  camSens: 0.25
 --- !u!1 &1880187987
 GameObject:
   m_ObjectHideFlags: 0
@@ -379,11 +427,11 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1880187987}
-  m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
+  m_LocalRotation: {x: -0.42948052, y: 0.7658226, z: -0.34644702, w: 0.3302071}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 1
-  m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+  m_LocalEulerAnglesHint: {x: 14.3, y: -5636, z: -66.2}

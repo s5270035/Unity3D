@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: body
+  m_Name: hair
   m_Shader: {fileID: 4800000, guid: ddc95cac07a014c9984669c5458646b9, type: 3}
   m_ValidKeywords: []
   m_InvalidKeywords: []
@@ -41,11 +41,11 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _LightmapTex:
-        m_Texture: {fileID: 2800000, guid: 732e7ef8bdb754c7bbc13816b59d401f, type: 3}
+        m_Texture: {fileID: 2800000, guid: 2b47ebbc76a6d4ff492c6e2dd541e0fe, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: cb00e421e774e49fb914af077f6a007d, type: 3}
+        m_Texture: {fileID: 2800000, guid: ab4f3b7a70f124ae39d848fffab20917, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:
@@ -65,7 +65,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _RampTex:
-        m_Texture: {fileID: 2800000, guid: 313dff567d9154b77ba6fb7726198c27, type: 3}
+        m_Texture: {fileID: 2800000, guid: 11c3426bbfd3145659a1786ac583da60, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []

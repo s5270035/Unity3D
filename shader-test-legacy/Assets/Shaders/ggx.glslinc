@@ -1,5 +1,9 @@
 float sqr(float x) { return x*x; }  
-
+float Pow5(float x) { return x*x*x*x*x; }
+float mix(float x, float y, float a) {
+    return x * (1.0 - a) + y*a;
+}
+static const float PI = 3.1415926535;
 float G_Smith(float roughness, float NoV, float NoL)
 {
     // Schlich model
@@ -47,7 +51,20 @@ float GGXNormalDistribution(float roughness, half3 lightDir, half3 viewDir, floa
     float TanNdotHSqr = (1-NdotHSqr)/NdotHSqr;
     return (1.0/3.1415926535) * sqr(roughness/(NdotHSqr * (roughnessSqr + TanNdotHSqr)));
 }
-
+// [Burley 2012, "Physically-Based Shading at Disney"] 
+float3 Diffuse_Burley_Disney( float3 DiffuseColor, float Roughness, float NoV, float NoL, float VoH ) 
+{ 
+       float FD90 = 0.5 + 2 * VoH * VoH * Roughness; 
+       float FdV = 1 + (FD90 - 1) * Pow5( 1 - NoV ); 
+       float FdL = 1 + (FD90 - 1) * Pow5( 1 - NoL ); 
+       return DiffuseColor * ( (1 / PI) * FdV * FdL ); 
+}
+float SchlickFresnel(float u) 
+{  
+       float m = clamp(1-u, 0, 1);  
+       float m2 = m*m;  
+       return m2*m2*m; // pow(m,5)  
+}
 // Generalized-Trowbridge-Reitz distribution  
 float D_GTR1(float alpha, float dotNH) 
 { 
@@ -56,7 +73,7 @@ float D_GTR1(float alpha, float dotNH)
     float cos2th = dotNH * dotNH;  
     float den = (1.0 + (a2 - 1.0) * cos2th);  
  
-    return (a2 - 1.0) / (3.1415926535 * log(a2) * den);  
+    return (a2 - 1.0) / (PI * log(a2) * den);  
 } 
 
 float D_GTR2(float alpha, float dotNH) 
@@ -64,7 +81,7 @@ float D_GTR2(float alpha, float dotNH)
     float a2 = alpha * alpha;  
     float cos2th = dotNH * dotNH;  
     float den = (1.0 + (a2 - 1.0) * cos2th);  
-    return a2 / (3.1415926535 * den * den);  
+    return a2 / (PI * den * den);  
 } 
 
 float smithG_GGX(float NdotV, float alphaG) 
