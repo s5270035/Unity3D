@@ -8,8 +8,13 @@ Shader "Custom/body"
         _LightmapTex ("Light Map", 2D) = "white" {}
         _RampTex ("Ramp (RGB)", 2D) = "white" {}
         _MetcapTex ("Metcap", 2D    ) = "white" {}  
+        _MetcapColor ("Metacap Color", Color) = (.5, .5, .5)
         _RampOffset ("Offset unit scale", Float) = 0.5
-        _ShadowSmooth ("Shadow Smooth", Float) = 0.5
+        _Alpha0 ("Alpha 0 id", Float) = 0
+        _Alpha1 ("Alpha 1 id", Float) = 1
+        _Alpha0_5 ("Alpha 0.5 id", Float) = 2
+        _Alpha0_7 ("Alpha 0.7 id", Float) = 3
+        
     }
     SubShader
     {
@@ -50,8 +55,12 @@ Shader "Custom/body"
             sampler2D _MetcapTex;
             float4 _MainTex_ST;
             fixed4 _Color;
+            float _Alpha0;
+            float _Alpha1;
+            float _Alpha0_5;
+            float _Alpha0_7;
+            fixed4 _MetcapColor;
             float _RampOffset;
-            float _ShadowSmooth;
             // vertex shader
             v2f vert (appdata v)
             {
@@ -94,8 +103,6 @@ Shader "Custom/body"
                 float halfLambert = NdotL * 0.5 + 0.5 ;
                 // float halfLambert2;
                 // halfLambert2 = halfLambert * _RampOffset / (_RampOffset + 0.22);
-                // halfLambert = smoothstep(0, _ShadowSmooth, halfLambert);
-                // halfLambert2 = smoothstep(0, _ShadowSmooth, halfLambert2);
                 // halfLambert = clamp(halfLambert, RampPixelX, 1 - RampPixelX);
                 // halfLambert2 = clamp(halfLambert2, RampPixelX, 1 - RampPixelX);
                 
@@ -106,49 +113,36 @@ Shader "Custom/body"
                 // float FL = SchlickFresnel(NdotL);
                 // float FV = SchlickFresnel(NdotV);
                 // diffuse = mix(1.0, FD90, FL) * mix(1.0, FD90, FV)* 1/3.1415 * white; 
-                float RampIndex = 1;
                 float LayerMask = lightmap.a;
-                if (LayerMask >= 0 && LayerMask <= 0.3) // metal ? 0
-                {
-                    RampIndex = 0;
-                }
-                if (LayerMask >= 0.4 && LayerMask <=0.6) // cloth? 0.5
-                {
-                    RampIndex = 1;
-                }
-                if (LayerMask >= 0.6 && LayerMask <=0.8) // hard suface ? 0.7
-                {
-                    RampIndex = 2;
-                }
-
-                if (LayerMask >= 0.9 && LayerMask <= 1.0) // skin 1
-                {
-                    RampIndex = 3;
-                }
-                float PixelInRamp = 1 - RampPixelY * (2 * RampIndex - 1);
                 float ShadowAOMask = lightmap.g;
-                float matcap_value =  clamp(smoothstep(0, 0.5, matcap.r) + i.color.g, 0, 1);
+                float matcap_value =  clamp(smoothstep(0, 0.5, matcap.r) , 0, 1);
+                // choice ramp
+                float RampIndex = lerp(
+	                    lerp(_Alpha0, _Alpha0_5, step(0.45, LayerMask)), 
+                        lerp(_Alpha0_7, _Alpha1, step(0.95, LayerMask)),
+	                    step(0.65, LayerMask)             
+                    );
+                float ramp_offset = max(0, 1 - ((RampIndex)/10+0.05));
+                //float matcap_value =  matcap.r;
                 ShadowAOMask = smoothstep(0, 0.3, lightmap.g);
                 // halfLambert = smoothstep(_RampOffset, _RampOffset+RampPixelX*20, halfLambert);
                 halfLambert = smoothstep(0, 0.8, halfLambert);
-                float3 ramp = tex2D(_RampTex, float2(halfLambert*ShadowAOMask*matcap_value, 0.25));
-                float3 metal_ramp = tex2D(_RampTex, float2(halfLambert*ShadowAOMask*matcap_value, 0.95)) ;
-                float3 skin_ramp =  tex2D(_RampTex, float2(halfLambert*ShadowAOMask, 0.85));
-                float3 ramp_matcap = tex2D(_RampTex, float2(matcap_value*ShadowAOMask, 0.35));
+                float matcap_mask = step(0.8, lightmap.b+lightmap.r);
+                //fixed3 matcap_color = _MetcapColor * (1-matcap_value) + white * (matcap_value);
+                //matcap_value = max(1, matcap_value+0.2); 
+                fixed3 matcap_color = lerp(white, _MetcapColor, 1-matcap_value);
+                //matcap_value = lerp(white, matcap_color, matcap_mask);
+                matcap_color = lerp(white, matcap_color, matcap_mask);
+                float3 ramp = tex2D(_RampTex, float2(halfLambert*ShadowAOMask, ramp_offset));                
                 float3 BaseMapShadowed = lerp(albedo.rgb * ramp, albedo.rgb, ShadowAOMask);
-                ramp_matcap = clamp(ramp_matcap+0.2, 0, 1);
                 float4 color = 1;
-                float metal = step(lightmap.a, 0.1);
-                float skin = 1 - step(lightmap.a, 0.9);
-                float glossiness = max(50*lightmap.r, 1);
-                float specular = pow(NdotH, glossiness) * lightmap.b;
-                fixed3 specular_color = specular*metal + (1-metal) * specular;
-                fixed3 diffuse_color = (1-metal) * (albedo.rgb*skin*skin_ramp + (1-skin) * albedo.rgb*ramp*ramp_matcap);
-                specular_color = albedo.rgb * metal * metal_ramp + specular_color ;
-                //float rim = pow(1- NdotV, 5);
+               
+                float glossiness = max(20*lightmap.r, 1);
+                float specular = pow(NdotH, glossiness) ;
+                fixed3 specular_color = specular * lightmap.b * albedo.rgb;
                 float rim = smoothstep(0.6, 1, 1-NdotV)/2;
-                color.rgb = specular_color+diffuse_color;
-                //color.rgb = lightmap.a;
+                //color.rgb = specular_color+diffuse_color;
+                color.rgb = ramp*albedo.rgb*matcap_color + specular_color;
                 color.a = 1.0;
                 return color;
             }
