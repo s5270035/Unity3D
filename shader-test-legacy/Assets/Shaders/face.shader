@@ -8,6 +8,7 @@ Shader "Custom/face"
         _LightmapTex ("Light Map", 2D) = "white" {}
         _ShadowTex ("Shadow (RGB)", 2D) = "white" {}
         _MetcapTex ("Metcap", 2D    ) = "white" {}  
+        _LightOffset("Light Offset", Float) = 0.0
         _MetcapColor ("Metacap Color", Color) = (.5, .5, .5)
         _Skin_Bright ("Face Color Bright", Color) = (.996, .980, .976)
         _Skin_Dark ("Face Color Dark", Color) = (.956, .745, .745)
@@ -45,7 +46,16 @@ Shader "Custom/face"
                 float4 pos : SV_POSITION; // clip space position
                 fixed4 color : COLOR;
             };
-
+            float aaStep(float compValue, float gradient){
+                float halfChange = fwidth(gradient) / 2;
+                //base the range of the inverse lerp on the change over one pixel
+                float lowerEdge = compValue - halfChange;
+                float upperEdge = compValue + halfChange;
+                //do the inverse interpolation
+                float stepped = (gradient - lowerEdge) / (upperEdge - lowerEdge);
+                stepped = saturate(stepped);
+                return stepped;
+            }
             sampler2D _MainTex;
             sampler2D _LightmapTex;
             sampler2D _ShadowTex;
@@ -55,6 +65,7 @@ Shader "Custom/face"
             fixed4 _MetcapColor;
             fixed3 _Skin_Bright;
             fixed3 _Skin_Dark;
+            float _LightOffset;
             static const float EPSILON = 0.0001;
             // vertex shader
             v2f vert (appdata v)
@@ -87,8 +98,8 @@ Shader "Custom/face"
 
                 fixed4 shadow = tex2D(_ShadowTex, i.uv);                
                 float4 color = 1;
-                float RdotL = dot(i.right.xz, i.lightDir.xz);
-                float face_ramp = step(RdotL, lightmap.g) * i.right.w;
+                float RdotL = saturate(dot(i.right.xz, i.lightDir.xz)+_LightOffset);
+                float face_ramp = aaStep(RdotL, lightmap.a) * i.right.w;
                 //face_ramp = lerp(face_ramp, smoothstep(RdotL-0.015, RdotL+0.015, lightmap.g) * i.right.w, 0.7);
                 fixed3 face_color = lerp(_Skin_Dark, _Skin_Bright, face_ramp) * albedo.rgb;
                 color.rgb = face_color;

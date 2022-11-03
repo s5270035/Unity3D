@@ -1,6 +1,6 @@
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
 
-Shader "Custom/body"
+Shader "Custom/hair"
 {
     Properties
     {
@@ -18,7 +18,6 @@ Shader "Custom/body"
         _Diffuse_step_B ("Diffuse step end", Float) = 0.5
         _Shadow_step_A ("Diffuse step begin", Float) = 0.13
         _Shadow_step_B ("Diffuse step begin", Float) = 0.35
-        
     }
     SubShader
     {
@@ -70,6 +69,7 @@ Shader "Custom/body"
             float _Diffuse_step_B;
             float _Shadow_step_A;
             float _Shadow_step_B;
+
             float aaStep(float compValue, float gradient){
                 float halfChange = fwidth(gradient) / 2;
                 //base the range of the inverse lerp on the change over one pixel
@@ -90,11 +90,9 @@ Shader "Custom/body"
                 // o.lightDir = normalize(ObjSpaceLightDir(v.vertex));
                 o.normal = normalize(mul((float3x3)UNITY_MATRIX_IT_MV,v.normal));
                 float3 lightdir = normalize(ObjSpaceLightDir(v.vertex));
-                o.lightDir = lightdir;
-                o.lightDir = normalize(mul((float3x3)UNITY_MATRIX_MV, lightdir));
+                o.lightDir = normalize(mul((float3x3)UNITY_MATRIX_IT_MV, lightdir));
                 float3 viewDir = normalize(ObjSpaceViewDir(v.vertex));
-                o.viewDir = viewDir;
-                o.viewDir = normalize(mul((float3x3)UNITY_MATRIX_MV,viewDir));
+                o.viewDir = normalize(mul((float3x3)UNITY_MATRIX_IT_MV,viewDir));
                 o.color = v.color;
                 o.uv = v.uv;
                 return o;
@@ -102,22 +100,39 @@ Shader "Custom/body"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                half3 h = Unity_SafeNormalize(i.lightDir + i.viewDir);
+                half3 h = normalize (i.lightDir + i.viewDir);
                 fixed4 white = 1;
                 float NdotV = max(0, dot(i.normal, i.viewDir));
                 float NdotH = max(0, dot (i.normal, h));
                 float NdotL = max(0, dot (i.normal, i.lightDir));
                 // float VdotH = max(0, dot(i.viewDir, h));
-                float LdotH = saturate(dot(i.lightDir, h));
+                float LdotH = max(0, dot(i.lightDir, h));
+                float Roughness = 0.5;
+                // float specular_D = D_GTR1(Roughness, NdotH);
                 
                 float RampPixelY = 0.05; // 1/10/2 = 0.05
                 float RampPixelX = 0.00390625; // 1.0/256.0
                 float RampOffsetMask = i.color.g;
                 float4 albedo = tex2D(_MainTex, i.uv);
                 float4 lightmap = tex2D(_LightmapTex, i.uv);
+                float4 lightmap_lod = tex2Dlod(_LightmapTex, float4(i.uv,0, 1));
                 float2 matcapUV = i.normal * 0.5 + 0.5;
                 float4 matcap = tex2D(_MetcapTex, matcapUV);
+                //float halfLambert = smoothstep(0.0,0.5,NdotL) * lightmap.b;
+                //float halfLambert = (NdotL *0.5 + 0.5 + RampOffsetMask - 1) / _RampOffset;
                 float halfLambert = NdotL * 0.5 + 0.5 ;
+                // float halfLambert2;
+                // halfLambert2 = halfLambert * _RampOffset / (_RampOffset + 0.22);
+                // halfLambert = clamp(halfLambert, RampPixelX, 1 - RampPixelX);
+                // halfLambert2 = clamp(halfLambert2, RampPixelX, 1 - RampPixelX);
+                
+                // halfLambert = smoothstep(0.0,0.5,halfLambert);
+                //float s = smithG_GGX(NdotV, 0.25);
+                // float3 diffuse = Diffuse_Burley_Disney(white, Roughness, NdotV, NdotL, LdotH);
+                // float FD90 = 0.5 + 2 * LdotH * LdotH * Roughness; 
+                // float FL = SchlickFresnel(NdotL);
+                // float FV = SchlickFresnel(NdotV);
+                // diffuse = mix(1.0, FD90, FL) * mix(1.0, FD90, FV)* 1/3.1415 * white; 
                 float LayerMask = lightmap.a;
                 float ShadowAOMask = lightmap.g;
                 float matcap_value =  clamp(smoothstep(0, 0.5, matcap.r) , 0, 1);
@@ -128,20 +143,30 @@ Shader "Custom/body"
 	                    step(0.65, LayerMask)             
                     );
                 float ramp_offset = max(0, 1 - ((RampIndex)/10+0.05));
+                //float matcap_value =  matcap.r;
                 ShadowAOMask = smoothstep(_Shadow_step_A, _Shadow_step_B, lightmap.g);
+                // halfLambert = smoothstep(_RampOffset, _RampOffset+RampPixelX*20, halfLambert);
                 halfLambert = smoothstep(_Diffuse_step_A, _Diffuse_step_B, halfLambert);
                 float matcap_mask = aaStep(0.8, lightmap.b+lightmap.r);
                 fixed3 matcap_color = lerp(white, _MetcapColor, 1-matcap_value);
+                //matcap_value = lerp(white, matcap_color, matcap_mask);
                 matcap_color = lerp(white, matcap_color, matcap_mask);
                 float3 ramp = tex2D(_RampTex, float2(halfLambert*ShadowAOMask, ramp_offset));                
+                float3 BaseMapShadowed = lerp(albedo.rgb * ramp, albedo.rgb, ShadowAOMask);
                 float4 color = 1;
-                float roughness = max(0.04, 1 - lightmap.r);
+               
+                
+                float rim = smoothstep(0.6, 1, 1-NdotV)/2;
+                //color.rgb = specular_color+diffuse_color;
+                float roughness = max(0.02, 1 - lightmap.r);
+                //float power = 2/(roughness*roughness) - 1.9;
+                float glossiness = max(20*lightmap.r, 0.01);
+                float specular = pow(NdotH, glossiness) ;
+                fixed3 specular_color = specular  * albedo.rgb * lightmap.b;
                 half V = SmithJointGGXVisibilityTerm(NdotL, NdotV, roughness);
                 half D = GGXTerm (NdotH, roughness);
-                float specular_term = V*D*UNITY_PI;
-                specular_term = max(0, specular_term * NdotL);
-                fixed3 specularColor = lerp(0.1, albedo.rgb * lightmap.b, 1-lightmap.a);
-                color.rgb =   ramp*albedo.rgb*matcap_color +specular_term * FresnelTerm(specularColor, LdotH);
+                float specular_term = V*D*UNITY_PI*lightmap.b*albedo.rgb;
+                color.rgb =  ramp*albedo.rgb*matcap_color + specular_term;
                 color.a = 1.0;
                 return color;
             }
