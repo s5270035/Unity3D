@@ -9,6 +9,8 @@ Shader "Custom/face"
         _ShadowTex ("Shadow (RGB)", 2D) = "white" {}
         _MetcapTex ("Metcap", 2D    ) = "white" {}  
         _LightOffset("Light Offset", Float) = 0.0
+        _OutlineColor ("Outline Color", Color) = (0,0,0,1)  
+        _Outline ("Outline width",Float) = .0001 
         _MetcapColor ("Metacap Color", Color) = (.5, .5, .5)
         _Skin_Bright ("Face Color Bright", Color) = (.996, .980, .976)
         _Skin_Dark ("Face Color Dark", Color) = (.956, .745, .745)
@@ -107,6 +109,51 @@ Shader "Custom/face"
                 return color;
             }
             ENDCG
+        }
+        Pass 
+        {  
+            Name "OUTLINE"  
+            Tags { "LightMode" = "Always" }  
+            Cull Front  
+            //Cull off  
+            ZWrite On  
+            //ZTest Off  
+            ColorMask RGB  
+            Blend SrcAlpha OneMinusSrcAlpha  
+            
+            //Offset 20,20    
+            CGPROGRAM  
+            #pragma vertex vert_outline  
+            #pragma fragment frag_outline
+            #include "UnityCG.cginc"
+            fixed4 _OutlineColor;
+            float _Outline;
+            struct appdata {  
+                float4 vertex : POSITION;  
+                float3 normal : NORMAL;
+                fixed4 color : COLOR;  
+            };  
+            struct v2f {  
+                float4 pos : POSITION;  
+                float4 color : COLOR;  
+            }; 
+            v2f vert_outline(appdata v) {       
+                v2f o;  
+                o.pos = UnityObjectToClipPos(v.vertex);  
+                float3 norm  = mul ((float3x3)UNITY_MATRIX_IT_MV, v.normal);  
+                float2 offset = TransformViewToProjection(norm.xy);  
+                float viewScaler = (o.pos.z + 1) *0.5;  
+                o.pos.xy += offset * viewScaler * _Outline * v.color.a;  
+                //v.vertex.xyz += v.tangent.xyz * 0.01 * _OutlineWidth * v.vertColor.a;
+                o.color.rgb = _OutlineColor;  
+                return o;  
+            }
+            half4 frag_outline(v2f i) : COLOR   
+            {  
+                i.color.a = 0.9;  
+                return i.color;   
+            }    
+            ENDCG  
         }
     
     }
