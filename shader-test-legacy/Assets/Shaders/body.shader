@@ -20,8 +20,8 @@ Shader "Custom/body"
         _Alpha0_7 ("Alpha 0.7 id", Float) = 3
         _Diffuse_step_A ("Diffuse step begin", Float) = 0.45
         _Diffuse_step_B ("Diffuse step end", Float) = 0.5
-        _Shadow_step_A ("Diffuse step begin", Float) = 0.13
-        _Shadow_step_B ("Diffuse step begin", Float) = 0.35
+        _Shadow_step_A ("Shadow step begin", Float) = 0.13
+        _Shadow_step_B ("Shadow step begin", Float) = 0.35
         
     }
     SubShader
@@ -42,6 +42,7 @@ Shader "Custom/body"
             struct appdata
             {
                 float4 vertex : POSITION; // vertex position
+                float4 tangent : TANGENT;
                 float3 normal : NORMAL;  
                 float2 uv : TEXCOORD0;  // texture coordinate
                 fixed4 color : COLOR;
@@ -121,7 +122,8 @@ Shader "Custom/body"
                 float4 lightmap = tex2D(_LightmapTex, i.uv);
                 float2 matcapUV = i.normal * 0.5 + 0.5;
                 float4 matcap = tex2D(_MetcapTex, matcapUV);
-                float halfLambert = NdotL * 0.5 + 0.5 ;
+                //float halfLambert = NdotL * 0.5 + 0.5 ;
+                float halfLambert = NdotL;
                 float LayerMask = lightmap.a;
                 float ShadowAOMask = lightmap.g;
                 float matcap_value =  clamp(smoothstep(0, 0.5, matcap.r) , 0, 1);
@@ -146,6 +148,7 @@ Shader "Custom/body"
                 specular_term = max(0, specular_term * NdotL);
                 fixed3 specularColor = lerp(0.1, albedo.rgb * lightmap.b, 1-lightmap.a);
                 color.rgb =   ramp*albedo.rgb*matcap_color +specular_term * FresnelTerm(specularColor, LdotH);
+                //color.rgb = halfLambert;
                 color.a = 1.0;
                 return color;
             }
@@ -171,6 +174,7 @@ Shader "Custom/body"
             float _Outline;
             struct appdata {  
                 float4 vertex : POSITION;  
+                float4 tangent : TANGENT;
                 float3 normal : NORMAL;
                 fixed4 color : COLOR;  
             };  
@@ -181,13 +185,25 @@ Shader "Custom/body"
             v2f vert_outline(appdata v) {       
                 v2f o;  
                 o.pos = UnityObjectToClipPos(v.vertex);  
-                float3 norm  = mul ((float3x3)UNITY_MATRIX_IT_MV, v.normal);  
+                float3 norm  = mul ((float3x3)UNITY_MATRIX_MV, normalize(v.normal));  
                 float2 offset = TransformViewToProjection(norm.xy);  
                 float viewScaler = (o.pos.z + 1) *0.5;  
                 o.pos.xy += offset * viewScaler * _Outline * v.color.a;  
-                //v.vertex.xyz += v.tangent.xyz * 0.01 * _OutlineWidth * v.vertColor.a;
-                o.color.rgb = _OutlineColor;  
-                return o;  
+
+                //float4 pos = UnityObjectToClipPos(v.vertex + normalize(v.normal + v.tangent) * 0.002);
+                // float3 norm = mul((float3x3)UNITY_MATRIX_MV, v.tangent);
+                // norm.x *= UNITY_MATRIX_P[0][0];
+                // norm.y *= UNITY_MATRIX_P[1][1];
+                // pos.xy += norm.xy * pos.z * _Outline * 0.1;
+                //o.pos = pos;
+
+                // float3 clipNormal = mul((float3x3) UNITY_MATRIX_VP, mul((float3x3) UNITY_MATRIX_M, normalize(v.tangent.xyz));
+                // //o.pos.xyz += normalize(clipNormal) * _Outline*20;
+                
+                // float2 offset = normalize(clipNormal.xy)/_ScreenParams.xy * _Outline*100000* o.pos.w*2;
+                //o.pos.xy += offset;
+                o.color.rgb = _OutlineColor.rgb;  
+                return o; 
             }
             half4 frag_outline(v2f i) : COLOR   
             {  

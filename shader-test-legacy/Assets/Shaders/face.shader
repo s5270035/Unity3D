@@ -1,5 +1,7 @@
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
 
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
 Shader "Custom/face"
 {
     Properties
@@ -131,6 +133,7 @@ Shader "Custom/face"
             struct appdata {  
                 float4 vertex : POSITION;  
                 float3 normal : NORMAL;
+                float3 tangent : TANGENT;
                 fixed4 color : COLOR;  
             };  
             struct v2f {  
@@ -144,7 +147,13 @@ Shader "Custom/face"
                 float2 offset = TransformViewToProjection(norm.xy);  
                 float viewScaler = (o.pos.z + 1) *0.5;  
                 o.pos.xy += offset * viewScaler * _Outline * v.color.a;  
-                //v.vertex.xyz += v.tangent.xyz * 0.01 * _OutlineWidth * v.vertColor.a;
+
+                // float4 pos = UnityObjectToClipPos(v.vertex);
+                // float3 norm = mul((float3x3)UNITY_MATRIX_MV, v.tangent);
+                // norm.x *= UNITY_MATRIX_P[0][0];
+                // norm.y *= UNITY_MATRIX_P[1][1];
+                // pos.xy += norm.xy * pos.z * _Outline;
+                // o.pos = pos;
                 o.color.rgb = _OutlineColor;  
                 return o;  
             }
