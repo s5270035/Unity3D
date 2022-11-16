@@ -86,9 +86,11 @@ Material:
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1
-    - _Outline: 0.009
+    - _Outline: 0.01
     - _Parallax: 0.02
     - _RampOffset: 0.9
+    - _RimIntensity: 2
+    - _RimWidth: 0.01
     - _ShadowSmooth: 0.96
     - _Shadow_step_A: 0.13
     - _Shadow_step_B: 0.35

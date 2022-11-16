@@ -16,6 +16,8 @@ Shader "Custom/face"
         _MetcapColor ("Metacap Color", Color) = (.5, .5, .5)
         _Skin_Bright ("Face Color Bright", Color) = (.996, .980, .976)
         _Skin_Dark ("Face Color Dark", Color) = (.956, .745, .745)
+        _RimWidth ("Rim Width", Float) = 0.01
+        _RimIntensity ("Rim Intensity", Float) = 1
     }
     SubShader
     {
@@ -47,6 +49,7 @@ Shader "Custom/face"
                 float4 right : TEXCOORD2;
                 float3 lightDir : TEXCOORD3;
                 float2 face_uv : TEXCOORD4; 
+                float4 suv : TEXCOORD5;
                 float4 pos : SV_POSITION; // clip space position
                 fixed4 color : COLOR;
             };
@@ -64,6 +67,7 @@ Shader "Custom/face"
             sampler2D _LightmapTex;
             sampler2D _ShadowTex;
             sampler2D _MetcapTex;
+            sampler2D _CameraDepthTexture;
             float4 _MainTex_ST;
             fixed4 _Color;
             fixed4 _MetcapColor;
@@ -71,6 +75,8 @@ Shader "Custom/face"
             fixed3 _Skin_Dark;
             float _LightOffset;
             static const float EPSILON = 0.0001;
+            float _RimWidth;
+            float _RimIntensity;
             // vertex shader
             v2f vert (appdata v)
             {
@@ -88,6 +94,7 @@ Shader "Custom/face"
                 o.face_uv.x = lerp(1-v.uv.x, v.uv.x, flip);
                 o.color = v.color;
                 o.uv = v.uv;
+                o.suv = ComputeScreenPos(o.pos);
                 return o;
             }
 
@@ -104,9 +111,15 @@ Shader "Custom/face"
                 float4 color = 1;
                 float RdotL = saturate(dot(i.right.xz, i.lightDir.xz)+_LightOffset);
                 float face_ramp = aaStep(RdotL, lightmap.a) * i.right.w;
+                float2 screenUV = i.suv.xy/i.suv.w;
+                float2 ufOfs = screenUV + i.normal.xy * _RimWidth;
+                float depth = tex2D(_CameraDepthTexture, ufOfs).r;
+                float rim = saturate(i.pos.z - depth);
+
                 //face_ramp = lerp(face_ramp, smoothstep(RdotL-0.015, RdotL+0.015, lightmap.g) * i.right.w, 0.7);
                 fixed3 face_color = lerp(_Skin_Dark, _Skin_Bright, face_ramp) * albedo.rgb;
                 color.rgb = face_color;
+                color.rgb += rim * _RimIntensity;
                 color.a = 1.0;
                 return color;
             }

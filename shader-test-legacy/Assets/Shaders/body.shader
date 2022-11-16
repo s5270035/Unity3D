@@ -13,7 +13,6 @@ Shader "Custom/body"
         _MetcapColor ("Metacap Color", Color) = (.5, .5, .5)
         _OutlineColor ("Outline Color", Color) = (0,0,0,1)  
         _Outline ("Outline width",Float) = .0001 
-        _RampOffset ("Offset unit scale", Float) = 0.5
         _Alpha0 ("Alpha 0 id", Float) = 0
         _Alpha1 ("Alpha 1 id", Float) = 1
         _Alpha0_5 ("Alpha 0.5 id", Float) = 2
@@ -22,36 +21,12 @@ Shader "Custom/body"
         _Diffuse_step_B ("Diffuse step end", Float) = 0.5
         _Shadow_step_A ("Shadow step begin", Float) = 0.13
         _Shadow_step_B ("Shadow step begin", Float) = 0.35
+        _RimWidth ("Rim Width", Float) = 0.01
+        _RimIntensity ("Rim Intensity", Float) = 1
         
     }
     SubShader
     {
-
-        Pass 
-        {
-        CGPROGRAM
-
-            #pragma vertex vert
-            #pragma fragment frag
-            #include "UnityCG.cginc"
-
-            struct v2f {
-                float4 pos : SV_POSITION;
-                float2 depth : TEXCOORD0;
-            };
-
-            v2f vert (appdata_base v) {
-                v2f o;
-                o.pos = UnityObjectToClipPos(v.vertex);
-                UNITY_TRANSFER_DEPTH(o.depth);
-                return o;
-            }
-
-            half4 frag(v2f i) : SV_Target {
-                UNITY_OUTPUT_DEPTH(i.depth);
-            }
-        ENDCG
-        }
         Pass
         {
             Tags { "RenderType"="Opaque" }
@@ -81,6 +56,7 @@ Shader "Custom/body"
                 float3 normal : TEXCOORD1;
                 float3 viewDir : TEXCOORD2;
                 float3 lightDir : TEXCOORD3;
+                float4 suv : TEXCOORD4; // screen space uv
                 float4 pos : SV_POSITION; // clip space position
                 fixed4 color : COLOR;
             };
@@ -89,6 +65,7 @@ Shader "Custom/body"
             sampler2D _LightmapTex;
             sampler2D _RampTex;
             sampler2D _MetcapTex;
+            sampler2D _CameraDepthTexture;
             float4 _MainTex_ST;
             fixed4 _Color;
             float _Alpha0;
@@ -96,11 +73,13 @@ Shader "Custom/body"
             float _Alpha0_5;
             float _Alpha0_7;
             fixed4 _MetcapColor;
-            float _RampOffset;
             float _Diffuse_step_A;
             float _Diffuse_step_B;
             float _Shadow_step_A;
             float _Shadow_step_B;
+            float _RimWidth;
+            float _RimIntensity;
+
             float aaStep(float compValue, float gradient){
                 float halfChange = fwidth(gradient) / 2;
                 //base the range of the inverse lerp on the change over one pixel
@@ -128,6 +107,7 @@ Shader "Custom/body"
                 o.viewDir = normalize(mul((float3x3)UNITY_MATRIX_MV,viewDir));
                 o.color = v.color;
                 o.uv = v.uv;
+                o.suv = ComputeScreenPos(o.pos);
                 return o;
             }
 
@@ -173,8 +153,12 @@ Shader "Custom/body"
                 float specular_term = V*D*UNITY_PI;
                 specular_term = max(0, specular_term * NdotL);
                 fixed3 specularColor = lerp(0.1, albedo.rgb * lightmap.b, 1-lightmap.a);
+                float2 screenUV = i.suv.xy/i.suv.w;
+                float2 ufOfs = screenUV + i.normal.xy * _RimWidth;
+                float depth = tex2D(_CameraDepthTexture, ufOfs).r;
+                float rim = saturate(i.pos.z - depth);
                 color.rgb =   ramp*albedo.rgb*matcap_color +specular_term * FresnelTerm(specularColor, LdotH);
-                //color.rgb = halfLambert;
+                color.rgb += rim * _RimIntensity;
                 color.a = 1.0;
                 return color;
             }

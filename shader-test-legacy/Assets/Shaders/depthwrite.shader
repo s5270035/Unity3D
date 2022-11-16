@@ -7,7 +7,7 @@ Shader "Hidden/DepthWrite" {
 SubShader {
     Pass {
         ZTest Always Cull Off ZWrite On
-      Fog { Mode off }
+        Fog { Mode off }
         
         CGPROGRAM        
             #pragma exclude_renderers gles flash
