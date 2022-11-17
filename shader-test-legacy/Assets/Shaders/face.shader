@@ -87,12 +87,16 @@ Shader "Custom/face"
                 float3 obj_lightdir = normalize(ObjSpaceLightDir(v.vertex));
                 float3 lightdir = normalize(WorldSpaceLightDir(v.vertex));
                 o.lightDir = lightdir;
-                float flip = step(0, sign(atan2(obj_lightdir.z, obj_lightdir.x)));
-                o.right.w = (sign(dot(float3(0,1,0), obj_lightdir))+1)/2;
-                o.right.xyz = normalize(mul((float3x3)UNITY_MATRIX_M,float3(0,0,1))) * (flip*2-1);
+                //float flip = step(0, sign(atan2(obj_lightdir.z, obj_lightdir.x)));
+                float flip = max(0, sign(atan2(obj_lightdir.z, obj_lightdir.x)));
+                //o.right.w = (sign(dot(float3(0,1,0), obj_lightdir))+1)/2;
+                o.right.w = max(0, dot(float3(0,1,0), obj_lightdir));
+                //o.right.xyz = normalize(mul((float3x3)UNITY_MATRIX_M,float3(0,0,1))) * (flip*2-1);
+                o.right.xyz = normalize(mul((float3x3)UNITY_MATRIX_M,float3(0,-1,0))) ; // * (flip*2-1);
                 o.face_uv.xy = v.uv;
-                o.face_uv.x = lerp(1-v.uv.x, v.uv.x, flip);
-                o.color = v.color;
+                o.face_uv.x = lerp(1-v.uv.x,v.uv.x, flip);
+                o.color = v.color; //float4(obj_lightdir, 1);
+                //o.color = dot(float3(0,1,0), obj_lightdir);
                 o.uv = v.uv;
                 o.suv = ComputeScreenPos(o.pos);
                 return o;
@@ -109,8 +113,9 @@ Shader "Custom/face"
 
                 fixed4 shadow = tex2D(_ShadowTex, i.uv);                
                 float4 color = 1;
-                float RdotL = saturate(dot(i.right.xz, i.lightDir.xz)+_LightOffset);
-                float face_ramp = aaStep(RdotL, lightmap.a) * i.right.w;
+                float RdotL = dot(i.right, i.lightDir);
+                RdotL = ((RdotL+1))/2;
+                float face_ramp = aaStep(RdotL, lightmap.a) ;// * i.right.w;
                 float2 screenUV = i.suv.xy/i.suv.w;
                 float2 ufOfs = screenUV + i.normal.xy * _RimWidth;
                 float depth = tex2D(_CameraDepthTexture, ufOfs).r;
@@ -121,6 +126,7 @@ Shader "Custom/face"
                 color.rgb = face_color;
                 color.rgb += rim * _RimIntensity;
                 color.a = 1.0;
+                //color.rgb = RdotL; 
                 return color;
             }
             ENDCG
