@@ -46,7 +46,7 @@ Shader "Custom/face"
             {
                 float2 uv : TEXCOORD0; // texture coordinate
                 float3 normal : TEXCOORD1;
-                float4 right : TEXCOORD2;
+                float3 front : TEXCOORD2;
                 float3 lightDir : TEXCOORD3;
                 float2 face_uv : TEXCOORD4; 
                 float4 suv : TEXCOORD5;
@@ -74,7 +74,6 @@ Shader "Custom/face"
             fixed3 _Skin_Bright;
             fixed3 _Skin_Dark;
             float _LightOffset;
-            static const float EPSILON = 0.0001;
             float _RimWidth;
             float _RimIntensity;
             // vertex shader
@@ -87,16 +86,11 @@ Shader "Custom/face"
                 float3 obj_lightdir = normalize(ObjSpaceLightDir(v.vertex));
                 float3 lightdir = normalize(WorldSpaceLightDir(v.vertex));
                 o.lightDir = lightdir;
-                //float flip = step(0, sign(atan2(obj_lightdir.z, obj_lightdir.x)));
                 float flip = max(0, sign(atan2(obj_lightdir.z, obj_lightdir.x)));
-                //o.right.w = (sign(dot(float3(0,1,0), obj_lightdir))+1)/2;
-                o.right.w = max(0, dot(float3(0,1,0), obj_lightdir));
-                //o.right.xyz = normalize(mul((float3x3)UNITY_MATRIX_M,float3(0,0,1))) * (flip*2-1);
-                o.right.xyz = normalize(mul((float3x3)UNITY_MATRIX_M,float3(0,-1,0))) ; // * (flip*2-1);
+                o.front = normalize(mul((float3x3)UNITY_MATRIX_M,float3(0,-1,0)));
                 o.face_uv.xy = v.uv;
                 o.face_uv.x = lerp(1-v.uv.x,v.uv.x, flip);
-                o.color = v.color; //float4(obj_lightdir, 1);
-                //o.color = dot(float3(0,1,0), obj_lightdir);
+                o.color = v.color; 
                 o.uv = v.uv;
                 o.suv = ComputeScreenPos(o.pos);
                 return o;
@@ -108,25 +102,20 @@ Shader "Custom/face"
                 float4 lightmap = tex2D(_LightmapTex, i.face_uv);
                 float2 matcapUV = i.normal * 0.5 + 0.5;
                 float4 matcap = tex2D(_MetcapTex, matcapUV);         
-
                 float skin = 1 - step(lightmap.a, 0.95);
-
                 fixed4 shadow = tex2D(_ShadowTex, i.uv);                
                 float4 color = 1;
-                float RdotL = dot(i.right, i.lightDir);
-                RdotL = ((RdotL+1))/2;
-                float face_ramp = aaStep(RdotL, lightmap.a) ;// * i.right.w;
+                float FdotL = dot(i.front, i.lightDir);
+                FdotL = (FdotL+1)/2;
+                float face_ramp = aaStep(FdotL, lightmap.a);
                 float2 screenUV = i.suv.xy/i.suv.w;
                 float2 ufOfs = screenUV + i.normal.xy * _RimWidth;
                 float depth = tex2D(_CameraDepthTexture, ufOfs).r;
                 float rim = saturate(i.pos.z - depth);
-
-                //face_ramp = lerp(face_ramp, smoothstep(RdotL-0.015, RdotL+0.015, lightmap.g) * i.right.w, 0.7);
                 fixed3 face_color = lerp(_Skin_Dark, _Skin_Bright, face_ramp) * albedo.rgb;
                 color.rgb = face_color;
                 color.rgb += rim * _RimIntensity;
                 color.a = 1.0;
-                //color.rgb = RdotL; 
                 return color;
             }
             ENDCG
